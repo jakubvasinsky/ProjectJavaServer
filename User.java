@@ -1,5 +1,7 @@
 package sample;
 
+import java.util.Random;
+
 public class User {
 
     private String fname;
@@ -43,5 +45,24 @@ public class User {
 
     public void setToken(String token) {
         this.token = token;
+    }
+    public void generateToken() {
+        int size=25;
+        Random rnd = new Random();
+        String testString="";
+        for(int i = 0;i<size;i++) {
+            int type=rnd.nextInt(4);
+            switch (type) {
+                case 0:
+                    testString += (char) ((rnd.nextInt(26)) + 65);
+                    break;
+                case 1:
+                    testString += (char) ((rnd.nextInt(10)) + 48);
+                    break;
+                default:
+                    testString += (char) ((rnd.nextInt(26)) + 97);
+            }
+        }
+        this.token=testString;
     }
 }

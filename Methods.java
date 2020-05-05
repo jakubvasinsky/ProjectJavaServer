@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 
 
 import java.text.SimpleDateFormat;
@@ -15,7 +16,8 @@ import java.util.List;
 
 public class Methods {
     List<User> list = new ArrayList<User>();
-
+    List<String> log = new ArrayList<String>();
+    List<String> messages = new ArrayList<String>();
 
 
     public Methods()
@@ -54,44 +56,43 @@ public class Methods {
             return ResponseEntity.status(401).body(res.toString());
         }
     }
+
     @RequestMapping(method=RequestMethod.POST, value="/signup")
-    public ResponseEntity<String> signup(@RequestBody String data) {
+    public ResponseEntity<String> signup(@RequestBody String data){
+        //System.out.println(data);
+        JSONObject obj = new JSONObject(data);
 
-        JSONObject object = new JSONObject(data);
-
-        if (object.has("fname")) {
-            if (object.has("lname") && object.has("login") && object.has("password")) {
-                if (findLogin(object.getString("login"))) {
-                    JSONObject res = new JSONObject();
-                    res.put("error", "User already exists");
-                    return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body(res.toString());
-                }
-                String password = object.getString("password");
-                if (password.isEmpty()) {
-                    JSONObject res = new JSONObject();
-                    res.put("error", "Password is a mandatory field");
-                    return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body(res.toString());
-                }
-                String hashpassword = hash(object.getString("password"));
-
-                User user = new User(object.getString("fname"), object.getString("lname"), object.getString("login"), hashpassword);
-                list.add(user);
+        if(obj.has("fname") && obj.has("lname")&& obj.has("login")&& obj.has("password"))
+        { // vstup je ok, mame vsetky kluce
+            if(existLogin(obj.getString("login"))){
                 JSONObject res = new JSONObject();
-                Object put = res.put("fname", object.getString("fname"));
-                res.put("lname", object.getString("lname"));
-                res.put("login", object.getString("login"));
-                return ResponseEntity.status(201).contentType(MediaType.APPLICATION_JSON).body(res.toString());
-            } else {
-                JSONObject res = new JSONObject();
-                res.put("error", "Invalid body request");
-                return ResponseEntity.status(400).body(res.toString());
+                res.put("error","User already exists");
+                return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body(res.toString());
             }
-        } else {
+            String password = obj.getString("password");
+            if(password.isEmpty()){
+                JSONObject res = new JSONObject();
+                res.put("error","Password is a mandatory field");
+                return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body(res.toString());
+            }
+            String hashPass = hash(obj.getString("password"));
+
+            User user = new User(obj.getString("fname"), obj.getString("lname"), obj.getString("login"), hashPass);
+            list.add(user);
             JSONObject res = new JSONObject();
-            res.put("error", "Invalid body request");
+            res.put("fname",obj.getString("fname"));
+            res.put("lname",obj.getString("lname"));
+            res.put("login",obj.getString("login"));
+            return ResponseEntity.status(201).contentType(MediaType.APPLICATION_JSON).body(res.toString());
+        }
+        else{
+            JSONObject res = new JSONObject();
+            res.put("error","Invalid body request");
             return ResponseEntity.status(400).body(res.toString());
         }
     }
+
+
 
     private String hash(String password) {
         return password;
@@ -131,4 +132,78 @@ public class Methods {
             return ResponseEntity.status(401).body("error");
         }
     }
+    @RequestMapping(method=RequestMethod.POST, value="/changepassword")
+    public ResponseEntity<String> changePasswd(@RequestBody String data){
+
+        JSONObject object = new JSONObject(data);
+
+        if(object.has("oldpassword") && object.has("newpassword")&& object.has("login"))
+        {
+            String login = object.getString("login");
+            String oldpassword = object.getString("oldpassword");
+            String newpassword = object.getString("newpassword");
+            if(oldpassword.isEmpty() || newpassword.isEmpty()){
+                JSONObject res = new JSONObject();
+                res.put("error","Passwords are mandatory fields");
+                return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body(res.toString());
+            }
+            if(!existLogin(login) || !checkPassword(login,oldpassword)){
+                JSONObject res = new JSONObject();
+                res.put("error","Invalid login or password");
+                return ResponseEntity.status(401).contentType(MediaType.APPLICATION_JSON).body(res.toString());
+            }
+
+            String hashPass = hash(object.getString("newpassword"));
+
+            User user = getUser(login);
+            user.setPassword(hashPass);
+            return ResponseEntity.status(200).contentType(MediaType.APPLICATION_JSON).body("{}");
+        }
+        else{
+            JSONObject res = new JSONObject();
+            res.put("error","Invalid body request");
+            return ResponseEntity.status(400).contentType(MediaType.APPLICATION_JSON).body(res.toString());
+        }
+    }
+
+    @RequestMapping(method = RequestMethod.POST, value = "/message/post")
+    public ResponseEntity<String> newMessage(@RequestBody String data, @RequestParam(value = "token") String userToken) {
+        JSONObject object = new JSONObject(data);
+        if (userToken.equals(findInformation(object.getString("from")).getToken())&& findLogin(object.getString("from")) && findLogin(object.getString("to"))) {
+
+            String timeStamp = new SimpleDateFormat("HH:mm:ss dd/MM/yyyy").format(Calendar.getInstance().getTime());
+            object.put("time", timeStamp);
+            messages.add(object.toString());
+            return ResponseEntity.status(201).body("Message send");
+        } else {
+            return ResponseEntity.status(400).body("error");
+        }
+    }
+    @RequestMapping(method = RequestMethod.POST, value = "/message/get")
+    public ResponseEntity<String> showMessages(@RequestBody String data, @RequestParam(value = "token") String userToken) {
+        JSONObject object = new JSONObject(data);
+
+        if (findLogin(object.getString("login")) && findInformation(object.getString("login")).getToken().equals(userToken)) {
+            JSONObject format = new JSONObject();
+
+            int count = 0;
+            for (String list : messages) {
+                JSONObject information = new JSONObject(list);
+
+                System.out.println(list);
+                if (information.getString("from").equals(object.getString("login"))||information.getString("to").equals(object.getString("login"))) {
+                    format.put(String.valueOf(count), list);
+                    count++;
+                }
+            }
+            String string = format.toString();
+
+            return ResponseEntity.status(201).body(string);
+
+
+        } else {
+            return ResponseEntity.status(400).body("error");
+        }
+    }
+
 }
