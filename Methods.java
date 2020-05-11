@@ -1,12 +1,10 @@
 package sample;
 
 import net.minidev.json.JSONObject;
+import org.json.JSONException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
 
 import java.text.SimpleDateFormat;
@@ -205,5 +203,21 @@ public class Methods {
             return ResponseEntity.status(400).body("error");
         }
     }
+    @RequestMapping(method = RequestMethod.GET, value = "/messages/{from}")
+    public Object getMessage(@RequestParam(value = "from") String from, @RequestHeader(name = "Authorization") String token) throws JSONException {
 
+        System.out.println("messages from");
+
+
+        JSONObject res = new JSONObject();
+
+        User temp = getUser(from);
+
+        if (temp == null  || !validToken(token) ) {
+            res.put("error", "Login error");
+            return ResponseEntity.status(401).contentType(MediaType.APPLICATION_JSON).body(res.toString());
+        }
+
+return "Application is running";
+    }
 }
